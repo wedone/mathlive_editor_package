@@ -150,7 +150,7 @@ class _MathLiveEmbeddedEditorState extends State<MathLiveEmbeddedEditor> {
       );
       await c.loadHtmlString(
         html,
-        baseUrl: 'https://cdn.jsdelivr.net/npm/mathlive@0.101.2/dist/',
+        baseUrl: 'https://cdn.jsdelivr.net/npm/mathlive@0.110.0/',
       );
     } catch (_) {
       if (mounted) {

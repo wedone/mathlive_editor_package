@@ -96,7 +96,7 @@ class _MathLiveMixedWebHostState extends State<_MathLiveMixedWebHost> {
         final html.LinkElement link = html.LinkElement()
           ..rel = 'stylesheet'
           ..href =
-              'https://cdn.jsdelivr.net/npm/mathlive@0.101.2/dist/mathlive-static.css'
+              'https://cdn.jsdelivr.net/npm/mathlive@0.110.0/mathlive-static.css'
           ..setAttribute('data-mathlive-mixed-cdn-css', '1');
         html.document.head!.append(link);
       }
@@ -108,7 +108,7 @@ class _MathLiveMixedWebHostState extends State<_MathLiveMixedWebHost> {
         return _mathLiveCdnCompleter!.future;
       }
       final html.ScriptElement script = html.ScriptElement()
-        ..src = 'https://cdn.jsdelivr.net/npm/mathlive@0.101.2/dist/mathlive.min.js'
+        ..src = 'https://cdn.jsdelivr.net/npm/mathlive@0.110.0/mathlive.min.js'
         ..setAttribute('data-mathlive-mixed-cdn-js', '1')
         ..async = true;
       script.onLoad.listen((_) {

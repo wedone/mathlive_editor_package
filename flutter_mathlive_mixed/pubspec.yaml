@@ -2,7 +2,7 @@ name: mathlive_studio
 description: >-
   Mixed plain text and inline LaTeX preview (MathLive) plus MathLive editor
   for Flutter (WebView on mobile, iframe on web).
-version: 0.1.2
+version: 0.2.0
 homepage: https://github.com/RohanPardule/mathlive_editor_package/tree/main/flutter_mathlive_mixed
 repository: https://github.com/RohanPardule/mathlive_editor_package
 issue_tracker: https://github.com/RohanPardule/mathlive_editor_package/issues

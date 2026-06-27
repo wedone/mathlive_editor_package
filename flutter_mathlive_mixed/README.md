@@ -1,6 +1,6 @@
 # mathlive_studio
 
-Render and edit **mixed content** in Flutter: normal text plus inline math written as LaTeX inside `\(...\)`, powered by [MathLive](https://mathlive.io/) **0.101.2**.
+Render and edit **mixed content** in Flutter: normal text plus inline math written as LaTeX inside `\(...\)`, powered by [MathLive](https://mathlive.io/) **0.110.0**.
 
 Works on **Android, iOS, and Web** (mobile/desktop use a WebView; web uses iframes / platform views).
 

@@ -1,0 +1,36 @@
+# 自动规范文本文件的换行符为 LF（存储在 Git 索引中）
+* text=auto
+
+# 以下文件强制使用 LF（即使在 Windows 上）
+*.js text eol=lf
+*.ts text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.md text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.xml text eol=lf
+*.gradle text eol=lf
+*.dart text eol=lf
+*.kt text eol=lf
+*.swift text eol=lf
+*.plist text eol=lf
+*.xcconfig text eol=lf
+*.pbxproj text eol=lf
+*.xcscheme text eol=lf
+*.xcworkspacedata text eol=lf
+
+# 二进制文件标记为 binary（禁止换行符转换）
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.zip binary
+*.jar binary
+*.aar binary
