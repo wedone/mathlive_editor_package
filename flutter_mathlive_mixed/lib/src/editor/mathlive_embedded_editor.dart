@@ -46,6 +46,7 @@ class _MathLiveEmbeddedEditorState extends State<MathLiveEmbeddedEditor> {
   Timer? _webPoll;
   void Function()? _webTriggerExport;
   double _webChromeHeight = 0;
+  double _reportedHeight = 0;
   bool _loading = true;
   String? _error;
   bool _ready = false;
@@ -88,6 +89,16 @@ class _MathLiveEmbeddedEditorState extends State<MathLiveEmbeddedEditor> {
             await _controller?.runJavaScript(
               'mlMixedPasteText(${jsonEncode(data!.text)})',
             );
+          }
+        },
+      )
+      ..addJavaScriptChannel(
+        MathLiveMixedChannels.heightSync,
+        onMessageReceived: (JavaScriptMessage message) {
+          if (!mounted) return;
+          final double? h = double.tryParse(message.message);
+          if (h != null && h.isFinite && h > 0 && h != _reportedHeight) {
+            setState(() => _reportedHeight = h);
           }
         },
       )
@@ -287,21 +298,22 @@ class _MathLiveEmbeddedEditorState extends State<MathLiveEmbeddedEditor> {
       );
     }
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: SizedBox(
-        height: widget.height,
-        child: Stack(
-          fit: StackFit.expand,
-          children: <Widget>[
-            ColoredBox(
-              color: _bg,
-              child: WebViewWidget(controller: _controller!),
-            ),
-            if (_loading) _loadingOverlay(),
-            if (_error != null && !_loading) _errorOverlay(),
-          ],
-        ),
+    // Dynamic height: use HTML-reported height when available, fallback to widget.height
+    final double effectiveHeight =
+        _reportedHeight > 0 ? _reportedHeight : widget.height;
+
+    return SizedBox(
+      height: effectiveHeight,
+      child: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          ColoredBox(
+            color: _bg,
+            child: WebViewWidget(controller: _controller!),
+          ),
+          if (_loading) _loadingOverlay(),
+          if (_error != null && !_loading) _errorOverlay(),
+        ],
       ),
     );
   }

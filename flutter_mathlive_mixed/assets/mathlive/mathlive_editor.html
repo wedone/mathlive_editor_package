@@ -24,7 +24,6 @@
     }
     .mathlive-mixed-root {
       margin: 0;
-      height: 100%;
       width: 100%;
       overscroll-behavior: none;
       touch-action: manipulation;
@@ -195,21 +194,23 @@
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
           try {
-            var root = document.getElementById('MATHLIVE_MIXED_ROOT_ID');
-            var h = 0;
-            if (root) {
-              h = Math.ceil(root.scrollHeight);
-            } else {
-              var b = document.body;
-              var el = document.documentElement;
-              h = Math.ceil(Math.max(
-                b ? b.scrollHeight : 0,
-                b ? b.offsetHeight : 0,
-                el ? el.scrollHeight : 0,
-                el ? el.offsetHeight : 0
-              ));
-            }
+            var mf = document.getElementById('mf');
+            var mfH = mf ? mf.offsetHeight : 50;
+            var kh = 0;
+            try {
+              if (typeof mathVirtualKeyboard !== 'undefined' && mathVirtualKeyboard.visible) {
+                kh = mathVirtualKeyboard.boundingRect.height || 0;
+              }
+            } catch (evk) {}
+            var h = Math.ceil(mfH + kh);
             if (h < 80) h = 80;
+            /* Report height via JavaScriptChannel (Android/iOS WebView) */
+            try {
+              if (typeof FlutterEditorHeight !== 'undefined' && FlutterEditorHeight.postMessage) {
+                FlutterEditorHeight.postMessage(String(h));
+              }
+            } catch (ech) {}
+            /* Report height via postMessage (Web / iframe) */
             var payload = { channel: 'MathLiveMixed', editorHeight: h, clientId: '___MATHLIVE_MIXED_CLIENT___' };
             if (window.parent && window.parent !== window) {
               window.parent.postMessage(payload, '*');
@@ -227,9 +228,7 @@
     /*
      * Do NOT set container — let the keyboard render at body level.
      * MathLive creates <div class="ML__keyboard"> as a direct child of <body>
-     * with position:fixed; bottom:0. This is how the scrollable-keyboard
-     * example works: body is flex-column, math-field is at the top, keyboard
-     * is at the bottom.
+     * with position:fixed; bottom:0.
      */
     try {
       mathVirtualKeyboard.show();
@@ -239,6 +238,15 @@
         mlMixedNotifyHostChromeHeight();
       });
     } catch (e1) {}
+    /* Report height when math-field content changes (may grow/shrink) */
+    try {
+      var mf = document.getElementById('mf');
+      if (mf) {
+        mf.addEventListener('input', function () {
+          setTimeout(mlMixedNotifyHostChromeHeight, 50);
+        });
+      }
+    } catch (eInput) {}
     mlMixedNotifyHostChromeHeight();
   }
 

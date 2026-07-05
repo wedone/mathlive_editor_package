@@ -8,4 +8,5 @@ abstract final class MathLiveMixedChannels {
   static const String previewHeightJsChannel = 'FlutterPreviewHeight';
   static const String latexSyncJsChannel = 'FlutterLatexSync';
   static const String latexExportJsChannel = 'FlutterLatex';
+  static const String heightSync = 'FlutterEditorHeight';
 }
