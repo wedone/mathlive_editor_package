@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathlive@0.101.2/dist/mathlive-static.css" />
   <script src="https://cdn.jsdelivr.net/npm/mathlive@0.101.2/dist/mathlive.min.js"></script>
   <style>
-    /* Stable WebView layout: no document scroll, no double-tap zoom delay on buttons */
     html, body {
       margin: 0;
       height: 100%;
@@ -17,123 +16,55 @@
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
       background: #ffffff;
+      box-sizing: border-box;
     }
-    /* Flutter web: editor is injected into a div in the host page (not iframe) — same rules */
+    body {
+      display: flex;
+      flex-direction: column;
+    }
     .mathlive-mixed-root {
       margin: 0;
       height: 100%;
       width: 100%;
-      overflow: hidden;
       overscroll-behavior: none;
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
       background: #ffffff;
       box-sizing: border-box;
-    }
-    #wrap {
-      box-sizing: border-box;
-      padding: 4px 10px 10px 10px;
-      padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
-      height: 100%;
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      overflow: hidden;
-      min-height: 0;
     }
-    /*
-     * Native MathLive toggles live in the shadow DOM with ::part(). Using position:fixed on
-     * those parts breaks tap hit-testing in many mobile WebViews. We hide them and use the
-     * in-page toolbar (#toolbar) instead — regular buttons receive touches reliably.
-     */
     math-field::part(menu-toggle),
     math-field::part(virtual-keyboard-toggle) {
       display: none !important;
     }
-    /* Toolbar: safe-area insets apply here (outside shadow DOM) */
-    #toolbar {
-      flex: 0 0 auto;
-      position: relative;
-      display: flex;
-      flex-direction: row;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      box-sizing: border-box;
-      padding:
-        calc(env(safe-area-inset-top, 0px) + 4px)
-        max(8px, env(safe-area-inset-right, 0px))
-        6px
-        max(8px, env(safe-area-inset-left, 0px));
-      min-height: 44px;
-      z-index: 20;
-      pointer-events: auto;
-    }
-    #toolbar button {
-      flex: 0 0 auto;
-      min-width: 44px;
-      min-height: 44px;
-      padding: 0 12px;
-      margin: 0;
-      border: 1px solid #cbd5e1;
-      border-radius: 10px;
-      background: #f8fafc;
-      color: #0f172a;
-      font-size: 18px;
-      line-height: 1;
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
-      cursor: pointer;
-      user-select: none;
-      -webkit-user-select: none;
-    }
-    #toolbar button:active {
-      background: #e2e8f0;
-    }
-    .mathlive-mixed-root.theme-dark #toolbar button,
-    body.theme-dark #toolbar button {
-      background: #1e2532;
-      border-color: #334155;
-      color: #e2e8f0;
-    }
-    .mathlive-mixed-root.theme-dark #toolbar button:active,
-    body.theme-dark #toolbar button:active {
-      background: #334155;
-    }
-    #editor-shell {
-      flex: 1 1 auto;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      padding-top: 0;
-      position: relative;
-      z-index: 1;
-    }
     math-field {
-      flex: 1 1 auto;
       width: 100%;
-      min-height: 160px;
-      font-size: 22px;
-      border-radius: 12px;
-      padding: 12px;
-      border: 1px solid #e2e8f0;
+      min-height: 30px;
+      height: auto;
+      font-size: 20px;
+      /* 测试阶段：上下边框显示容器边界 */
+      border-top: 1px solid #3b82f6;
+      border-bottom: 1px solid #3b82f6;
+      border-left: none;
+      border-right: none;
+      padding: 2px 8px;
       box-sizing: border-box;
+      outline: none;
+      /* 公式内容水平居中 */
+      justify-content: center;
     }
-    math-field:focus { outline: 2px solid #ff6200; outline-offset: 2px; }
-    #vk-root {
-      flex: 0 0 auto;
-      position: relative;
-      width: 100%;
-      min-height: 0;
+    /* MathLive 内容区域居中（shadow DOM 内部） */
+    math-field::part(content) {
+      justify-content: center;
     }
+    math-field:focus { outline: none; }
     .mathlive-mixed-root.theme-dark { background: #141922; }
     body.theme-dark { background: #141922; }
     .mathlive-mixed-root.theme-dark math-field,
     body.theme-dark math-field {
       background: #1e2532;
       color: #e2e8f0;
-      border-color: #334155;
     }
     @media (pointer: coarse) {
       body {
@@ -144,13 +75,12 @@
         --keyboard-toolbar-font-size: 15px;
         --keycap-gap: 4px;
       }
-      math-field { font-size: 24px; min-height: 180px; }
+      /* math-field { font-size: 24px; min-height: 60px; } */
     }
-    /*
-     * Keep MathLive's popup menu + its "Insert" submenu fully inside narrow
-     * iOS viewports. Without these caps the submenu expands to the right of
-     * the parent menu and gets clipped by the screen edge on compact widths.
-     */
+    body > .ML__keyboard.is-visible > .MLK__backdrop {
+      box-shadow: none;
+      border-top: none;
+    }
     .ML__menu,
     .ui-menu-container,
     ui-menu-container,
@@ -172,30 +102,7 @@
 </head>
 <body>
 <div class="mathlive-mixed-root" id="MATHLIVE_MIXED_ROOT_ID">
-  <div id="wrap">
-    <div id="toolbar">
-      <button
-              type="button"
-              id="ml-btn-menu"
-              aria-label="Math menu"
-              onclick="return mlMixedOpenMenu(event);"
-              onpointerdown="return mlMixedOpenMenu(event);"
-      >⋯</button>
-      <button
-              type="button"
-              id="ml-btn-keyboard"
-              aria-label="Virtual keyboard"
-              onclick="return mlMixedToggleVk(event);"
-              onpointerdown="return mlMixedToggleVk(event);"
-      >⌨</button>
-    </div>
-    <div id="editor-shell">
-      <math-field id="mf" math-mode-space="\ " virtual-keyboard-mode="manual"></math-field>
-    </div>
-    <div id="vk-root">
-      <math-virtual-keyboard></math-virtual-keyboard>
-    </div>
-  </div>
+  <math-field id="mf" math-mode-space="\ " virtual-keyboard-mode="manual"></math-field>
 </div>
 <script>
   function mlMixedPostToHost(s) {
@@ -259,7 +166,6 @@
       setTimeout(tryApply, 250);
       setTimeout(tryApply, 600);
     }
-    /* Immediate retries (legacy) + wait for `math-field` when Dart runs before MathLive loads */
     scheduleRetries();
     if (typeof customElements !== 'undefined' && customElements.whenDefined) {
       customElements.whenDefined('math-field').then(scheduleRetries).catch(scheduleRetries);
@@ -283,15 +189,6 @@
     if (d.cmd === 'theme') { mlMixedSetTheme(!!d.dark); return; }
     if (d.cmd === 'setLatex') { mlMixedSetLatex(d.latex); return; }
   });
-
-  /** True when this document is inside an iframe (e.g. Flutter web HtmlElementView). */
-  function mlMixedIsInIframe() {
-    try {
-      return window.parent !== window;
-    } catch (e) {
-      return true;
-    }
-  }
 
   function mlMixedNotifyHostChromeHeight() {
     try {
@@ -326,300 +223,23 @@
   }
 
   function mlMixedAttachVirtualKeyboard() {
-    var vkRoot = document.getElementById('vk-root');
     if (typeof mathVirtualKeyboard === 'undefined') return;
     /*
-     * Attach keyboard to #vk-root when allowed. Blob iframes (legacy) cannot reassign
-     * container; Flutter web now hosts this HTML in a div on the main document instead.
+     * Do NOT set container — let the keyboard render at body level.
+     * MathLive creates <div class="ML__keyboard"> as a direct child of <body>
+     * with position:fixed; bottom:0. This is how the scrollable-keyboard
+     * example works: body is flex-column, math-field is at the top, keyboard
+     * is at the bottom.
      */
-    if (vkRoot && !mlMixedIsInIframe()) {
-      try {
-        mathVirtualKeyboard.container = vkRoot;
-      } catch (eContainer) {
-        /* keep default container */
-      }
-    }
+    try {
+      mathVirtualKeyboard.show();
+    } catch (eShow) {}
     try {
       mathVirtualKeyboard.addEventListener('geometrychange', function () {
-        var h = 0;
-        try {
-          h = mathVirtualKeyboard.boundingRect.height;
-        } catch (e0) {}
-        if (vkRoot) {
-          if (h > 0) {
-            vkRoot.style.minHeight = h + 'px';
-            vkRoot.style.height = h + 'px';
-          } else {
-            vkRoot.style.minHeight = '';
-            vkRoot.style.height = 'auto';
-          }
-        }
         mlMixedNotifyHostChromeHeight();
       });
     } catch (e1) {}
     mlMixedNotifyHostChromeHeight();
-  }
-
-  /** Prefer MathLive show/hide over flipping .visible (more reliable on web). */
-  function mlMixedToggleMathVirtualKeyboardInstance() {
-    if (typeof mathVirtualKeyboard === 'undefined') return false;
-    try {
-      var vis = !!mathVirtualKeyboard.visible;
-      if (typeof mathVirtualKeyboard.hide === 'function' && typeof mathVirtualKeyboard.show === 'function') {
-        if (vis) {
-          mathVirtualKeyboard.hide();
-        } else {
-          mathVirtualKeyboard.show();
-        }
-        return true;
-      }
-    } catch (e0) {}
-    try {
-      mathVirtualKeyboard.visible = !mathVirtualKeyboard.visible;
-      return true;
-    } catch (e1) {}
-    return false;
-  }
-
-  window._mlMixedLastMenuTapAt = 0;
-  window._mlMixedLastVkTapAt = 0;
-
-  function mlMixedGetMf() {
-    return document.getElementById('mf');
-  }
-
-  function mlMixedTapDedupe(lastKey) {
-    var now = Date.now();
-    var last = window[lastKey] || 0;
-    if (now - last < 220) return false;
-    window[lastKey] = now;
-    return true;
-  }
-
-  function mlMixedOpenMenu(ev) {
-    if (ev) {
-      try { ev.preventDefault(); } catch (e0) {}
-      try { ev.stopPropagation(); } catch (e1) {}
-    }
-    if (!mlMixedTapDedupe('_mlMixedLastMenuTapAt')) return false;
-    try {
-      var mf = mlMixedGetMf();
-      var btnMenu = document.getElementById('ml-btn-menu');
-      if (!mf || !btnMenu) return false;
-      try { mf.focus(); } catch (f0) {}
-      var r = btnMenu.getBoundingClientRect();
-      // Natural anchor: centered under the ⋯ button. The menu opens to the
-      // right as users expect on wide screens; [mlMixedClampMenusToViewport]
-      // pulls it and its "Insert" submenu back inside the viewport on narrow
-      // iOS widths.
-      var anchorX = r.left + r.width / 2;
-      if (typeof mf.showMenu === 'function') {
-        mf.showMenu({ location: { x: anchorX, y: r.bottom + 2 } });
-        mlMixedClampMenusToViewport();
-        return false;
-      }
-      if (typeof mf.executeCommand === 'function') {
-        try {
-          mf.executeCommand('toggleContextMenu');
-          mlMixedClampMenusToViewport();
-          return false;
-        } catch (e2) {}
-        try {
-          mf.executeCommand('showMenu');
-          mlMixedClampMenusToViewport();
-          return false;
-        } catch (e3) {}
-      }
-      return false;
-    } catch (e4) {
-      return false;
-    }
-  }
-
-  var _mlMixedMenuSelector =
-    '.ML__menu, .ui-menu-container, ui-menu-container, ui-submenu, [role="menu"]';
-
-  function _mlMixedClampElement(el) {
-    if (!el || el.nodeType !== 1) return;
-    var rect = el.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
-    var vw = Math.max(
-      document.documentElement.clientWidth || 0,
-      window.innerWidth || 0
-    );
-    var vh = Math.max(
-      document.documentElement.clientHeight || 0,
-      window.innerHeight || 0
-    );
-    // Hard-cap width first so an oversized menu scrolls internally instead of
-    // extending past the right edge.
-    if (rect.width > vw - 8) {
-      el.style.maxWidth = (vw - 8) + 'px';
-      el.style.overflowX = 'auto';
-      rect = el.getBoundingClientRect();
-    }
-    // Right overflow: slide the menu left by the overflow amount.
-    if (rect.right > vw - 4) {
-      var overflowX = rect.right - (vw - 4);
-      var curLeft = parseFloat(el.style.left);
-      if (isNaN(curLeft)) curLeft = rect.left;
-      el.style.left = Math.max(4, curLeft - overflowX) + 'px';
-      el.style.right = 'auto';
-    }
-    // Left overflow (can happen after the right clamp on very narrow widths).
-    var r2 = el.getBoundingClientRect();
-    if (r2.left < 4) {
-      var curLeft2 = parseFloat(el.style.left);
-      if (isNaN(curLeft2)) curLeft2 = r2.left;
-      el.style.left = (curLeft2 + (4 - r2.left)) + 'px';
-      el.style.right = 'auto';
-    }
-    // Bottom overflow: pull the menu up so the last row stays visible.
-    var r3 = el.getBoundingClientRect();
-    if (r3.bottom > vh - 4) {
-      var overflowY = r3.bottom - (vh - 4);
-      var curTop = parseFloat(el.style.top);
-      if (isNaN(curTop)) curTop = r3.top;
-      el.style.top = Math.max(4, curTop - overflowY) + 'px';
-      el.style.bottom = 'auto';
-    }
-  }
-
-  /**
-   * Keeps MathLive's dropdown menu + its lazily-rendered "Insert" submenu
-   * fully inside the visible viewport. Runs for ~200ms after the menu opens
-   * because MathLive creates the submenu only after its parent item is
-   * hovered/tapped. A MutationObserver also catches any later additions so
-   * subsequent submenu opens don't need another trigger.
-   */
-  function mlMixedClampMenusToViewport() {
-    function clampAll() {
-      var nodes = document.querySelectorAll(_mlMixedMenuSelector);
-      for (var i = 0; i < nodes.length; i++) {
-        _mlMixedClampElement(nodes[i]);
-      }
-    }
-    var frames = 0;
-    function tick() {
-      clampAll();
-      frames++;
-      if (frames < 12) {
-        requestAnimationFrame(tick);
-      }
-    }
-    requestAnimationFrame(tick);
-    mlMixedEnsureMenuObserver();
-  }
-
-  var _mlMixedMenuObserver = null;
-  function mlMixedEnsureMenuObserver() {
-    if (_mlMixedMenuObserver) return;
-    try {
-      _mlMixedMenuObserver = new MutationObserver(function(mutations) {
-        for (var m = 0; m < mutations.length; m++) {
-          var mut = mutations[m];
-          for (var i = 0; i < mut.addedNodes.length; i++) {
-            var n = mut.addedNodes[i];
-            if (n.nodeType !== 1) continue;
-            if (n.matches && n.matches(_mlMixedMenuSelector)) {
-              requestAnimationFrame((function(el) {
-                return function() { _mlMixedClampElement(el); };
-              })(n));
-            }
-            var inner = n.querySelectorAll
-              ? n.querySelectorAll(_mlMixedMenuSelector)
-              : null;
-            if (inner && inner.length) {
-              for (var j = 0; j < inner.length; j++) {
-                requestAnimationFrame((function(el) {
-                  return function() { _mlMixedClampElement(el); };
-                })(inner[j]));
-              }
-            }
-          }
-        }
-      });
-      _mlMixedMenuObserver.observe(document.body, {
-        childList: true,
-        subtree: true,
-      });
-    } catch (eObs) {}
-  }
-
-  function mlMixedToggleVk(ev) {
-    if (ev) {
-      try { ev.preventDefault(); } catch (e0) {}
-      try { ev.stopPropagation(); } catch (e1) {}
-    }
-    if (!mlMixedTapDedupe('_mlMixedLastVkTapAt')) return false;
-    try {
-      var mf = mlMixedGetMf();
-      try { if (mf) mf.focus(); } catch (f0) {}
-
-      if (mf && typeof mf.executeCommand === 'function') {
-        try { mf.executeCommand('toggleVirtualKeyboard'); return false; } catch (e2) {}
-        try { mf.executeCommand('showVirtualKeyboard'); return false; } catch (e3) {}
-      }
-
-      if (typeof mathVirtualKeyboard !== 'undefined') {
-        try {
-          if (mathVirtualKeyboard.executeCommand) {
-            mathVirtualKeyboard.executeCommand('toggleVirtualKeyboard');
-            setTimeout(mlMixedNotifyHostChromeHeight, 0);
-            setTimeout(mlMixedNotifyHostChromeHeight, 120);
-            return false;
-          }
-        } catch (e4) {}
-        if (mlMixedToggleMathVirtualKeyboardInstance()) {
-          setTimeout(mlMixedNotifyHostChromeHeight, 0);
-          setTimeout(mlMixedNotifyHostChromeHeight, 120);
-          return false;
-        }
-      }
-      return false;
-    } catch (e6) {
-      return false;
-    }
-  }
-
-  function mlMixedWireToolbar() {
-    var btnMenu = document.getElementById('ml-btn-menu');
-    var btnVk = document.getElementById('ml-btn-keyboard');
-    if (!btnMenu || !btnVk) return;
-    if (window._mlMixedToolbarWired) return;
-    if (window._mlMixedToolbarWiring) return;
-    window._mlMixedToolbarWiring = true;
-
-    function bind() {
-      if (window._mlMixedToolbarWired) return;
-      var mf = document.getElementById('mf');
-      if (!mf) return;
-
-      btnMenu.addEventListener('click', mlMixedOpenMenu, true);
-      btnVk.addEventListener('click', mlMixedToggleVk, true);
-      window._mlMixedToolbarWired = true;
-    }
-
-    if (typeof customElements !== 'undefined' && customElements.whenDefined) {
-      customElements.whenDefined('math-field').then(bind).catch(bind);
-    } else {
-      setTimeout(bind, 0);
-    }
-    /* If CDN is slow, whenDefined may be late — backup bind */
-    setTimeout(bind, 1200);
-  }
-
-  function mlMixedEventTargetsMathField(ev, mf) {
-    if (!mf) return false;
-    if (ev.target === mf || mf.contains(ev.target)) return true;
-    if (mf.shadowRoot && ev.target && mf.shadowRoot.contains(ev.target)) return true;
-    if (typeof ev.composedPath === 'function') {
-      var path = ev.composedPath();
-      for (var i = 0; i < path.length; i++) {
-        if (path[i] === mf) return true;
-      }
-    }
-    return false;
   }
 
   function mlMixedEnsureMathModeSpace() {
@@ -654,6 +274,19 @@
         mf.insert('\\ ', { format: 'latex' });
       }
     } catch (e3) {}
+  }
+
+  function mlMixedEventTargetsMathField(ev, mf) {
+    if (!mf) return false;
+    if (ev.target === mf || mf.contains(ev.target)) return true;
+    if (mf.shadowRoot && ev.target && mf.shadowRoot.contains(ev.target)) return true;
+    if (typeof ev.composedPath === 'function') {
+      var path = ev.composedPath();
+      for (var i = 0; i < path.length; i++) {
+        if (path[i] === mf) return true;
+      }
+    }
+    return false;
   }
 
   function mlMixedFixKeys() {
@@ -718,7 +351,6 @@
   (function init() {
     mlMixedEnsureMathModeSpace();
     mlMixedAttachVirtualKeyboard();
-    mlMixedWireToolbar();
     mlMixedFixKeys();
     setTimeout(mlMixedNotifyHostChromeHeight, 0);
     setTimeout(mlMixedNotifyHostChromeHeight, 200);
@@ -727,7 +359,6 @@
       customElements.whenDefined('math-field').then(function () {
         mlMixedEnsureMathModeSpace();
         mlMixedAttachVirtualKeyboard();
-        mlMixedWireToolbar();
         mlMixedFixKeys();
       }).catch(function () {});
     }
@@ -735,7 +366,6 @@
     setTimeout(mlMixedEnsureMathModeSpace, 0);
     setTimeout(mlMixedAttachVirtualKeyboard, 50);
     setTimeout(mlMixedAttachVirtualKeyboard, 300);
-    setTimeout(mlMixedWireToolbar, 0);
     setTimeout(mlMixedFixKeys, 50);
   })();
 </script>
