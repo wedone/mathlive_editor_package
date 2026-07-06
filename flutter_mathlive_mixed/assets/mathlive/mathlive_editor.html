@@ -80,6 +80,12 @@
       box-shadow: none;
       border-top: none;
     }
+    /* fixedRows 滚动区域：启用触摸滚动（覆盖 .MLK__layer 的 pointerdown preventDefault） */
+    .MLK__rows.MLK__scrollable-rows {
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+      overscroll-behavior: contain;
+    }
     .ML__menu,
     .ui-menu-container,
     ui-menu-container,
@@ -320,7 +326,7 @@
                   { class: 'separator', width: 0.5 },
                   { label: '[shift]', width: 1 },
                   { label: '[backspace]', width: 1 },
-                  '[left]', '[right]'
+                  '[left]', '[right]','[return]'
                 ]
               ]
             }
@@ -328,7 +334,7 @@
         },
         'numeric',
         'symbols',
-        'alphabetic',
+        // 'alphabetic',
         'greek'
       ];
     } catch (e) {}
