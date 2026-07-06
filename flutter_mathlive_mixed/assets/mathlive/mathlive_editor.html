@@ -76,11 +76,29 @@
       }
       /* math-field { font-size: 24px; min-height: 60px; } */
     }
+    /* ───── [DOM Hook 修改点 #1] 虚拟键盘外观 ───── */
+    /* 目标类：.ML__keyboard / .MLK__backdrop（MathLive 动态创建，位于 <body> 直接子级）
+     * 作用：去掉键盘顶部的阴影和边框，使其与编辑器无缝衔接
+     * 选择器说明：body > .ML__keyboard.is-visible > .MLK__backdrop
+     *   - .ML__keyboard  是 MathLive 创建的键盘根容器（position:fixed; bottom:0）
+     *   - .is-visible     是键盘显示后添加的状态类
+     *   - .MLK__backdrop  是键盘的背景层 */
     body > .ML__keyboard.is-visible > .MLK__backdrop {
       box-shadow: none;
       border-top: none;
     }
-    /* fixedRows 滚动区域：JS 手动控制滚动（touch-action:none 避免与 variant 上划冲突） */
+
+    /* ───── [DOM Hook 修改点 #2] fixedRows 滚动区域的触摸行为 ───── */
+    /* 目标类：.MLK__scrollable-rows / .MLK__row / .MLK__row > div
+     * 作用：禁用浏览器原生滚动（touch-action:none），改由 JS 手动控制
+     * 原因：touch-action:pan-y 会让浏览器在 compositor 层抢走垂直手势，
+     *   导致 variant 面板的上划选择失效（两种手势都是垂直方向）
+     * 关联 JS：见下方 mlMixedFixScrollTouch() 函数
+     * DOM 结构（MathLive 渲染后）：
+     *   .MLK__scrollable-rows          ← 可滚动区域（overflow-y:auto + max-height）
+     *     └ .MLK__row                  ← 每行按键
+     *         └ div.MLK__keycap        ← 单个按键
+     *   .MLK__fixed-rows               ← 固定行区域（不滚动） */
     .MLK__rows.MLK__scrollable-rows,
     .MLK__rows.MLK__scrollable-rows .MLK__row,
     .MLK__rows.MLK__scrollable-rows .MLK__row > div {
@@ -232,9 +250,32 @@
     } catch (e2) {}
   }
 
-  /*
-   * 自定义虚拟键盘布局：rows 可滚动，fixedRows 固定在底部。
-   * 需要本地构建的 MathLive JS（含 fixedRows 源码级支持）。
+  /* ───── [DOM Hook 修改点 #3] 自定义键盘布局配置 ─────
+   *
+   * 调用 MathLive 公开 API：mathVirtualKeyboard.layouts = [...]
+   * 这是 MathLive 的官方 API，不属于 DOM Hook，但它是 fixedRows 功能的前提。
+   *
+   * fixedRows 是本地构建的 MathLive JS 源码级扩展（CDN 0.101.2 不支持）。
+   * 渲染后 MathLive 会生成以下 DOM 结构：
+   *
+   *   <div class="ML__keyboard is-visible">           ← 键盘根容器
+   *     <div class="MLK__backdrop">
+   *       <div class="MLK__plate">
+   *         <div class="MLK__layer has-fixed-rows">   ← 有 fixedRows 时添加 has-fixed-rows 类
+   *           <div class="MLK__rows MLK__scrollable-rows">  ← 可滚动区域
+   *             <div class="MLK__row">...</div>     ← rows[0]
+   *             <div class="MLK__row">...</div>     ← rows[1]
+   *             ...                                  ← rows[N]
+   *           </div>
+   *           <div class="MLK__rows MLK__fixed-rows">      ← 固定区域
+   *             <div class="MLK__row">...</div>     ← fixedRows[0]
+   *           </div>
+   *         </div>
+   *       </div>
+   *     </div>
+   *   </div>
+   *
+   * 注意：LaTeX 命令中的反斜杠在 JS 字符串中需要双写（'\\frac' 而非 '\frac'）
    */
   function mlMixedSetupKeyboardLayouts() {
     if (typeof mathVirtualKeyboard === 'undefined') return;
@@ -242,109 +283,149 @@
       mathVirtualKeyboard.layouts = [
         {
           label: '常用',
-          layers: [
-            {
-              rows: [
-                // 第1行：数字 + 字母
-                [
-                  { label: '[1]', variants: ['\\frac{1}{#@}', '{#@}^{-1}'] },
-                  '[2]', '[3]', '[4]', '[5]',
-                  { class: 'separator', width: 0.5 },
-                  { label: 'A', variants: ['a', 'α'], shift: 'α' },
-                  { label: 'B', variants: ['b', 'β'], shift: 'β' },
-                  { label: 'C', variants: ['c', 'θ'], shift: 'θ' },
-                  { label: 'D', variants: ['d', 'λ'], shift: 'λ' },
-                  { label: 'E', variants: ['e', 'μ'], shift: 'μ' }
-                ],
-                // 第2行
-                [
-                  '[6]', '[7]', '[8]', '[9]', '[0]',
-                  { class: 'separator', width: 0.5 },
-                  { label: 'F', variants: ['f', 'σ'], shift: 'σ' },
-                  { label: 'G', variants: ['g', 'π'], shift: 'π' },
-                  { label: 'H', variants: ['h', 'ω'], shift: 'ω' },
-                  { label: 'I', variants: ['i', 'γ'], shift: 'γ' },
-                  { label: 'J', variants: ['j', 'δ'], shift: 'δ' }
-                ],
-                // 第3行
-                [
-                  '[.]', '[(]', '[)]',
-                  { label: '<', variants: ['\\le', '≪'] },
-                  { label: '>', variants: ['\\ge', '≫'] },
-                  { class: 'separator', width: 0.5 },
-                  { label: 'K', variants: ['k', 'Δ', '\\nabla'], shift: 'Δ' },
-                  { label: 'L', variants: ['l', 'ρ'], shift: 'ρ' },
-                  { label: 'M', variants: ['m', 'ϕ'], shift: 'ϕ' },
-                  { label: 'N', variants: ['n', 'Σ'], shift: 'Σ' },
-                  { label: 'O', variants: ['o', 'ε'], shift: 'ε' }
-                ],
-                // 第4行：运算符
-                [
-                  { latex: '{#@}^{\\prime}', variants: ['{#@}^{\\doubleprime}'] },
-                  { class: 'small', latex: '\\frac{#@}{#?}' },
-                  { latex: '{#@}^{\\placeholder{@0}}' },
-                  { latex: '\\sqrt{#0}' },
-                  { latex: '\\overrightarrow{#0}' },
-                  { class: 'separator', width: 0.5 },
-                  { label: 'P', variants: ['p', 'η'], shift: 'η' },
-                  { label: 'Q', variants: ['q', 'ξ'], shift: 'ξ' },
-                  { label: 'R', variants: ['r', 'τ', '\\mathbb{R}'], shift: 'τ' },
-                  { latex: 'S', variants: ['s', 'Ω'], shift: 'Ω' },
-                  { label: 'T', variants: ['t'] }
-                ],
-                // 第5行：几何 + 集合
-                [
-                  { latex: '|{#0}|', variants: ['||{#0}||'] },
-                  { latex: '\\perp', variants: ['∥'] },
-                  { label: '∠', variants: ['∡'] },
-                  { latex: '\\triangle' },
-                  { latex: '\\because', variants: ['\\therefore'] },
-                  { class: 'separator', width: 0.5 },
-                  { label: 'U', variants: ['u'] },
-                  { label: 'V', variants: ['v'] },
-                  { latex: 'x', variants: ['X'] },
-                  { latex: 'y', variants: ['Y'] },
-                  { latex: 'z', variants: ['Z'] }
-                ],
-                // 第6行：函数
-                [
-                  { latex: '\\sin', variants: ['\\arcsin'], shift: '\\sin^{-1}' },
-                  { latex: '\\cos', variants: ['\\arccos'], shift: '\\cos^{-1}' },
-                  { latex: '\\tan', variants: ['\\arctan'], shift: '\\tan^{-1}' },
-                  { latex: '\\log', variants: ['\\ln', '\\lg'], shift: '\\ln' },
-                  { latex: '\\max', variants: ['\\min', '\\lim'], shift: '\\min' },
-                  { class: 'separator', width: 0.5 },
-                  { latex: '∈', variants: ['⊆', '⊂', '\\notin'], shift: '⊆' },
-                  { latex: '∪', variants: ['∩', '∅'], shift: '∩' },
-                  { latex: '⇒', variants: ['→', '⟺'], shift: '→' },
-                  { latex: '⇐', variants: ['←', '⇔'], shift: '←' },
-                  { latex: '∋', variants: ['⊇', '⊃'], shift: '⊇' }
-                ]
+          layers: [            
+          {
+            rows: [
+              // 第一行
+              [
+                {
+                  latex: '0',
+                  variants: [
+                    '∞',
+                    '\\propto',
+                    { latex: '×10}^{#0}', class: 'small' },
+                  ],
+                  shift: '\\infty'
+                },
+                { label: '[1]', variants: ['\\frac{1}{#@}', '{#@}^{-1}', '{#@}_1'] },
+                { label: '[2]', variants: ['\\frac{1}{2}', '{#@}_2', '{#@}^2', '\\sqrt{2}'] },
+                '[3]',
+                '[4]',
+                { class: 'separator', width: 0.5 },
+                { label: "A", variants: ["a", "α"], shift: "α" },
+                { label: "B", variants: ["b", "β"], shift: "β" },
+                { label: "C", variants: ["c", "θ"], shift: "θ" },
+                { label: "D", variants: ["d", "λ"], shift: "λ" },
+                { label: "E", variants: ["e", "μ"], shift: "μ" }
               ],
-              fixedRows: [
-                // 固定行：运算符 + 导航
-                [
-                  '[+]', '[-]', '[*]', '[/]',
-                  { label: '=', variants: ['≠', '∼', '≈', '≅', '≡'], shift: '≈' },
-                  { class: 'separator', width: 0.5 },
-                  { label: '[shift]', width: 1 },
-                  { label: '[backspace]', width: 1 },
-                  { label: '[left]', width: 1 },
-                  { label: '[right]', width: 1 },
-                  { label: '[return]', width: 1 }
-                ]
-              ]
-            }
-          ]
-        },
-        'numeric',
-        'symbols',
-        // 'alphabetic',
-        'greek'
+              // { class: 'small', latex: '\\frac{#@}{#?}' }, '\\varnothing', '\\infty', '\\in', '\\notin'],
+              // 第二行
+              [
+                '[5]',
+                '[6]',
+                '[7]',
+                '[8]',
+                '[9]',
+                { class: 'separator', width: 0.5 },
+                { label: "F", variants: ["f", "σ"], shift: "σ" },
+                { label: "G", variants: ["g", "π"], shift: "π" },
+                { label: "H", variants: ["h", "ω"], shift: "ω" },
+                { label: "I", variants: ["i", "γ"], shift: "γ" },
+                { label: "J", variants: ["j", "δ"], shift: "δ" }
+                // '(#@)', '[)]', '\\lt', '\\le', '\\hat{=}'
+              ],
+              // 第三行
+              [
+                '[.]',
+                '[(]',
+                '[)]',
+                { label: "<", variants: ["\\le", '≪'] },
+                { label: ">", variants: ["\\ge", '≫ '] },
+                { class: 'separator', width: 0.5 },
+                { label: "K", variants: ["k", "Δ", '\\nabla'], shift: "Δ" },
+                { label: "L", variants: ["l", "ρ",], shift: "ρ" },
+                { label: "M", variants: ["m", "\\min", "\\max", "ϕ",], shift: "ϕ" },
+                { label: "N", variants: ["n", "Σ"], shift: "Σ" },
+                { label: "O", variants: ["o", "ε"], shift: "ε" }
+                // '[', ']', '\\gt', '\\ne', '\\ge'
+              ],
+              // 第四行
+              [
+                { latex: '{#@}^{\\prime}', variants: ['{#@}^{\\doubleprime}', '{#@}°'] },
+                { class: 'small', latex: '\\frac{#@}{#?}', variants: [{ latex: "\\frac{#?}{#@}", class: 'small' }] },
+                { latex: '{#@}^{\\placeholder{@0}}', variants: ['{#@}_{\\placeholder{@0}}', '{#@}_{\\placeholder{@?}}^{\\placeholder{@?}}'] },
+                { latex: '\\sqrt{#0}', variants: ['\\sqrt{#@}'] },
+                { latex: '\\overrightarrow{#0}', variants: ['\\vec{#0}'] },
+                { class: 'separator', width: 0.5 },
+                { label: "P", variants: ["p", "η"], shift: "η" },
+                { label: "Q", variants: ["q", "ξ"], shift: "ξ" },
+                { label: "R", variants: ["r", "τ", '\\mathbb{R}'], shift: "τ" },
+                { latex: "S", variants: ["s", "S_{\\placeholder{@0}}", "Ω"], shift: "Ω" },
+                { label: "T", variants: ["t"], shift: "" },
+              ],
+              // 第五行
+              [
+
+                { latex: '|{#0}|', variants: ['||{#0}||'] },
+                { latex: '\\perp', variants: ['∥', '\\not\\perp'], shift: '∥' },
+                { label: '∠', variants: ['∡', '∢'] },
+                { latex: "\\triangle", insert: "△", variants: [{ label: '▱', insert: '\\text{平行四边形}' }, { label: '□', insert: '\\text{正方形}' }, { label: '圆', insert: '\\text{圆}' }, { label: '⊙', insert: '\\text{圆点}' }] },
+                { latex: '\\because', insert: '\\text{因为}', variants: [{ latex: '\\therefore', insert: '\\text{所以}' }] },
+                { class: 'separator', width: 0.5 },
+                { label: "U", variants: ["u"], shift: "" },
+                { label: "V", variants: ["v"], shift: "" },
+                { latex: "x", variants: ["X"], shift: "" },
+                { latex: "y", variants: ["Y"], shift: "" },
+                { latex: "z", variants: ["Z"], shift: "" }
+              ],
+              // 第六行
+              [
+                { latex: '∈', variants: ['⊆', '⊂', '\\notin'], shift: '⊆' },
+                { latex: '∋', variants: ['⊇', '⊃'], shift: '⊇' },
+                { latex: '∪', variants: ['∩', '∅'], shift: '∩' },
+                { latex: '⇒', variants: ['→', '⟺'], shift: '→' },
+                { latex: '⇐', variants: ['←', '⇔'], shift: '←' },
+                { class: 'separator', width: 0.5 },
+                { latex: "\\sin", variants: [{ latex: '\\sin^{-1}', class: 'small' }, '\\arcsin'], shift: '\\sin^{-1}' },
+                { latex: "\\cos", variants: [{ latex: '\\cos^{-1}', class: 'small' }, '\\arccos'], shift: '\\cos^{-1}' },
+                { latex: "\\tan", variants: [{ latex: '\\tan^{-1}', class: 'small' }, '\\arctan'], shift: '\\tan^{-1}' },
+                { latex: "\\log", variants: ['\\ln', '\\lg'], shift: '\\ln' },
+                { latex: '\\max', variants: ['\\min', "\\lim"], shift: '\\min' },
+              ],
+            ],
+            fixedRows: [
+              ['[+]', '[-]', '[*]', '[/]',
+                { label: '=', variants: ['≠', '∼', '≈', '≅', '≡'], shift: '≈' },
+                { class: 'separator', width: 0.5 },
+                { label: '[shift]', width: 1 },
+                { label: '[backspace]', width: 1 },
+                // { class: 'action', label: '[backspace]', "command": 'backspace', variants: '[deleteAll]', width: 1 },
+                { label: '[left]', width: 1 },
+                { label: '[right]', width: 1 },
+                // ★ [插入]按键：替换原 [return]，默认行内，Shift 行间
+                {
+                  label: '[return]',
+                  class: 'action',
+                  width: 1,
+                  command: 'performWithFeedback(commit)',
+                  shift: {
+                    label: '↩️',
+                    class: 'action',
+                    command: 'performWithFeedback(commit)',
+                  },
+                }],
+            ],
+          },
+        ],
+      },
+      'numeric',
+      'symbols',
+      // 'alphabetic',
+      'greek'
       ];
     } catch (e) {}
   }
 
+  /* ───── [DOM Hook 修改点 #5] 键盘生命周期钩子 ─────
+   *
+   * 通过 MathLive 公开 API 监听键盘的 geometrychange 事件。
+   * MathLive 每次重建键盘 DOM（如切换布局）后会触发此事件。
+   *
+   * 为什么需要在这里调用 mlMixedFixScrollTouch()？
+   *   MathLive 的 rebuild() 会移除旧 DOM 并创建新 DOM，
+   *   之前绑定的 scrollable 事件监听器随旧 DOM 一起销毁，
+   *   必须在 geometrychange 回调中重新绑定。
+   */
   function mlMixedAttachVirtualKeyboard() {
     if (typeof mathVirtualKeyboard === 'undefined') return;
     /*
@@ -375,18 +456,30 @@
     mlMixedNotifyHostChromeHeight();
   }
 
-  /*
-   * 修复 fixedRows 滚动区域内的触摸滚动与 variant 面板冲突。
+  /* ───── [DOM Hook 修改点 #4] 触摸滚动事件拦截器 ─────
    *
-   * 方案：touch-action:none 禁用浏览器原生滚动，完全由 JS 手动控制：
-   *   1. pointerdown 记录起始位置和 scrollTop
-   *   2. pointermove 超过阈值 → 判定为滚动 → stopPropagation 隔离 + 手动滚动
-   *   3. variant 面板打开时 → 不干预，让 MathLive 正常处理上划选择
-   *   4. 未超过阈值 → 不干预，让 MathLive 正常处理点击/长按
-   *   5. pointerup 时若正在滚动 → stopPropagation 阻止 MathLive 触发按键命令
+   * 目标类：.MLK__scrollable-rows（MathLive 渲染 fixedRows 布局后自动生成）
+   * 冲突类：.MLK__variant-panel.is-visible（variant 面板弹出时添加）
+   * 状态类：.is-pressed（按键被按下时由 MathLive 的 Gg() 函数添加）
    *
-   * 关键：不派发 pointercancel（会导致 WebView 停止后续 pointermove 事件）
-   *       只移除 is-pressed 类即可——MathLive 的 pointerup 处理器会检查该类
+   * 核心矛盾：
+   *   - MathLive 在 .ML__keyboard 上注册了 Gg(pointerdown) 处理器，
+   *     会调用 e.preventDefault() 阻止浏览器启动滚动手势
+   *   - MathLive 在每个 .MLK__layer 上也注册了 pointerdown→preventDefault()
+   *   - 上述两处共同导致手指滑动无法触发原生滚动
+   *
+   * 解决方案（capture 阶段拦截 + JS 手动滚动）：
+   *   1. pointerdown：记录起始坐标和 scrollTop（capture 阶段，先于 MathLive）
+   *   2. pointermove：移动超过 10px 阈值 → 判定为滚动
+   *      → 移除 .is-pressed 类（使 MathLive 的 pointerup 处理器不触发命令）
+   *      → e.stopPropagation() 阻止 MathLive 的处理器执行
+   *      → 手动修改 scrollTop（带 2x 增益，改善滚动手感）
+   *   3. variant 面板打开时不干预 → 让 MathLive 正常处理上划选择
+   *   4. pointerup：若正在滚动 → stopPropagation 阻止 MathLive 触发按键命令
+   *
+   * 为什么不派发 pointercancel？
+   *   WebView 实现可能将合成的 pointercancel 视为真实取消信号，
+   *   导致浏览器内部终止该 pointer 会话，后续 pointermove 不再派发
    */
   function mlMixedFixScrollTouch() {
     var scrollable = document.querySelector('.MLK__scrollable-rows');
