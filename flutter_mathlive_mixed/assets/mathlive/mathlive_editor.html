@@ -378,17 +378,15 @@
   /*
    * 修复 fixedRows 滚动区域内的触摸滚动与 variant 面板冲突。
    *
-   * 核心矛盾：
-   *   - 滚动键盘需要手指上下滑动
-   *   - variant 面板选择也需要手指上划
-   *   - touch-action:pan-y 让浏览器在 compositor 层处理滚动，
-   *     会“抢走” variant 的上划手势
-   *
    * 方案：touch-action:none 禁用浏览器原生滚动，完全由 JS 手动控制：
    *   1. pointerdown 记录起始位置和 scrollTop
-   *   2. pointermove 超过阈值 → 判定为滚动 → 手动修改 scrollTop + 取消按键
-   *   3. variant 面板打开时 → 不手动滚动，让 MathLive 正常处理上划选择
+   *   2. pointermove 超过阈值 → 判定为滚动 → stopPropagation 隔离 + 手动滚动
+   *   3. variant 面板打开时 → 不干预，让 MathLive 正常处理上划选择
    *   4. 未超过阈值 → 不干预，让 MathLive 正常处理点击/长按
+   *   5. pointerup 时若正在滚动 → stopPropagation 阻止 MathLive 触发按键命令
+   *
+   * 关键：不派发 pointercancel（会导致 WebView 停止后续 pointermove 事件）
+   *       只移除 is-pressed 类即可——MathLive 的 pointerup 处理器会检查该类
    */
   function mlMixedFixScrollTouch() {
     var scrollable = document.querySelector('.MLK__scrollable-rows');
@@ -399,6 +397,8 @@
     var activePtr = -1;
     var isScrolling = false;
     var THRESHOLD = 10;
+    /* 滚动增益：手指移动 1px → 滚动 2px，减少滑动次数 */
+    var SCROLL_GAIN = 2;
 
     scrollable.addEventListener('pointerdown', function (e) {
       startX = e.clientX;
@@ -423,33 +423,36 @@
         /* 超过阈值 → 判定为滚动 */
         isScrolling = true;
 
-        /* 取消按键按压状态，防止滑动结束误触发按键 */
+        /* 移除按键按压状态（不派发 pointercancel，避免 WebView 停止 pointermove） */
         var pressed = scrollable.querySelector('.is-pressed');
-        if (pressed) {
-          pressed.classList.remove('is-pressed');
-          try {
-            pressed.dispatchEvent(new PointerEvent('pointercancel', {
-              bubbles: true,
-              cancelable: false,
-              pointerId: e.pointerId,
-              pointerType: e.pointerType
-            }));
-          } catch (_) {}
-        }
+        if (pressed) pressed.classList.remove('is-pressed');
       }
 
-      /* 手动滚动 */
-      scrollable.scrollTop = startScrollTop - dy;
+      /* 阻止事件传播到 MathLive 的处理器 */
+      e.preventDefault();
+      e.stopPropagation();
+
+      /* 手动滚动（带增益） */
+      scrollable.scrollTop = startScrollTop - dy * SCROLL_GAIN;
     }, { capture: true });
 
-    function endPtr(e) {
+    /* pointerup 时若正在滚动，阻止事件到达 MathLive 的按键处理器 */
+    scrollable.addEventListener('pointerup', function (e) {
+      if (e.pointerId !== activePtr) return;
+      if (isScrolling) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      activePtr = -1;
+      isScrolling = false;
+    }, { capture: true });
+
+    scrollable.addEventListener('pointercancel', function (e) {
       if (e.pointerId === activePtr) {
         activePtr = -1;
         isScrolling = false;
       }
-    }
-    scrollable.addEventListener('pointerup', endPtr, { capture: true });
-    scrollable.addEventListener('pointercancel', endPtr, { capture: true });
+    }, { capture: true });
   }
 
   function mlMixedEnsureScrollFix() {
