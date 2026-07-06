@@ -80,10 +80,14 @@
       box-shadow: none;
       border-top: none;
     }
-    /* fixedRows 滚动区域：启用触摸滚动（覆盖 .MLK__layer 的 pointerdown preventDefault） */
+    /* fixedRows 滚动区域：启用触摸滚动 */
+    .MLK__rows.MLK__scrollable-rows,
+    .MLK__rows.MLK__scrollable-rows .MLK__row,
+    .MLK__rows.MLK__scrollable-rows .MLK__row > div {
+      touch-action: pan-y;
+    }
     .MLK__rows.MLK__scrollable-rows {
       -webkit-overflow-scrolling: touch;
-      touch-action: pan-y;
       overscroll-behavior: contain;
     }
     .ML__menu,
@@ -326,7 +330,7 @@
                   { class: 'separator', width: 0.5 },
                   { label: '[shift]', width: 1 },
                   { label: '[backspace]', width: 1 },
-                  '[left]', '[right]','[return]'
+                  '[left]', '[right]',{label: '[return]', width: 1}
                 ]
               ]
             }
@@ -351,9 +355,11 @@
     try {
       mathVirtualKeyboard.show();
     } catch (eShow) {}
+    mlMixedEnsureScrollFix();
     try {
       mathVirtualKeyboard.addEventListener('geometrychange', function () {
         mlMixedNotifyHostChromeHeight();
+        mlMixedFixScrollTouch();
       });
     } catch (e1) {}
     /* Report height when math-field content changes (may grow/shrink) */
@@ -366,6 +372,69 @@
       }
     } catch (eInput) {}
     mlMixedNotifyHostChromeHeight();
+  }
+
+  /*
+   * 修复 fixedRows 滚动区域内的触摸滚动冲突。
+   *
+   * 问题：MathLive 的 Gg(pointerdown) 和 .MLK__layer 的 pointerdown 处理器
+   *   都调用 e.preventDefault()，阻止浏览器启动滚动手势。
+   *   导致手指滑动时无法滚动，反而触发按键。
+   *
+   * 方案：在 capture 阶段拦截 pointerdown，将 e.preventDefault 替换为空操作，
+   *   让浏览器可以启动滚动。同时跟踪手指移动距离，超过阈值时派发 pointercancel
+   *   取消按键按压状态，避免滑动结束误触发按键命令。
+   */
+  function mlMixedFixScrollTouch() {
+    var scrollable = document.querySelector('.MLK__scrollable-rows');
+    if (!scrollable || scrollable.dataset.mlMixedScrollFix === '1') return;
+    scrollable.dataset.mlMixedScrollFix = '1';
+
+    var startX = 0, startY = 0, activeId = -1;
+    var THRESHOLD = 10;
+
+    scrollable.addEventListener('pointerdown', function (e) {
+      startX = e.clientX;
+      startY = e.clientY;
+      activeId = e.pointerId;
+      // 将 preventDefault 替换为空操作，使浏览器可以启动滚动手势
+      try { e.preventDefault = function () {}; } catch (_) {}
+    }, { capture: true });
+
+    scrollable.addEventListener('pointermove', function (e) {
+      if (e.pointerId !== activeId) return;
+      var dx = Math.abs(e.clientX - startX);
+      var dy = Math.abs(e.clientY - startY);
+      if (dx < THRESHOLD && dy < THRESHOLD) return;
+      activeId = -1;
+      // 手指移动超过阈值，判定为滚动，取消按键按压
+      var pressed = scrollable.querySelector('.is-pressed');
+      if (pressed) {
+        pressed.classList.remove('is-pressed');
+        try {
+          pressed.dispatchEvent(new PointerEvent('pointercancel', {
+            bubbles: true,
+            cancelable: false,
+            pointerId: e.pointerId,
+            pointerType: e.pointerType
+          }));
+        } catch (_) {}
+      }
+    }, { capture: true });
+
+    scrollable.addEventListener('pointerup', function (e) {
+      if (e.pointerId === activeId) activeId = -1;
+    }, { capture: true });
+
+    scrollable.addEventListener('pointercancel', function (e) {
+      if (e.pointerId === activeId) activeId = -1;
+    }, { capture: true });
+  }
+
+  function mlMixedEnsureScrollFix() {
+    requestAnimationFrame(mlMixedFixScrollTouch);
+    setTimeout(mlMixedFixScrollTouch, 100);
+    setTimeout(mlMixedFixScrollTouch, 500);
   }
 
   function mlMixedEnsureMathModeSpace() {
@@ -486,6 +555,7 @@
         mlMixedEnsureMathModeSpace();
         mlMixedSetupKeyboardLayouts();
         mlMixedAttachVirtualKeyboard();
+        mlMixedEnsureScrollFix();
         mlMixedFixKeys();
       }).catch(function () {});
     }
