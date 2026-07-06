@@ -42,7 +42,7 @@
     /* 编辑器输入区域样式 */
     math-field {
       width: 100%;
-      min-height: 30px;
+      min-height: 60px;
       height: auto;
       font-size: 20px;
       /* 测试阶段：上下边框显示容器边界 */
@@ -313,10 +313,10 @@
               // 第一行
               [
                 {
-                  latex: '0',
+                  label: '0',
                   variants: [
                     '∞',
-                    '\\propto',
+                    { latex: '\\propto'},
                     { latex: '×10}^{#0}', class: 'small' },
                   ],
                   shift: '\\infty'
@@ -367,7 +367,7 @@
               [
                 { latex: '{#@}^{\\prime}', variants: ['{#@}^{\\doubleprime}', '{#@}°'] },
                 { class: 'small', latex: '\\frac{#@}{#?}', variants: [{ latex: "\\frac{#?}{#@}", class: 'small' }] },
-                { latex: '{#@}^{\\placeholder{@0}}', variants: ['{#@}_{\\placeholder{@0}}', '{#@}_{\\placeholder{@?}}^{\\placeholder{@?}}'] },
+                { latex: '{#@}^{2}}', variants: ['{#@}^{\\placeholder{@0}}', '{#@}_{\\placeholder{@0}}', '{#@}_{\\placeholder{@?}}^{\\placeholder{@?}}'] },
                 { latex: '\\sqrt{#0}', variants: ['\\sqrt{#@}'] },
                 { latex: '\\overrightarrow{#0}', variants: ['\\vec{#0}'] },
                 { class: 'separator', width: 0.5 },
