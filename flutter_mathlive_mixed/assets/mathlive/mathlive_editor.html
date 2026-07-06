@@ -747,6 +747,19 @@
     );
   }
 
+  /* ───── 修复按键声效 ─────
+   * MathLive 默认 soundsDirectory 为 './sounds'（相对路径），通过 resolveUrl() 解析。
+   * 但本项目的 JS 被内联到 HTML 中（非 <script src> 加载），
+   * 导致 document.currentScript.src 为空，resolveUrl() 无法确定基路径，
+   * fetch('./sounds/...') 静默失败，按键无声效。
+   * 修复：设置为 CDN 绝对路径。
+   */
+  try {
+    if (typeof MathfieldElement !== 'undefined') {
+      MathfieldElement.soundsDirectory = 'https://cdn.jsdelivr.net/npm/mathlive@0.101.2/dist/sounds';
+    }
+  } catch (eSounds) {}
+
   (function init() {
     mlMixedEnsureMathModeSpace();
     mlMixedAttachVirtualKeyboard();
