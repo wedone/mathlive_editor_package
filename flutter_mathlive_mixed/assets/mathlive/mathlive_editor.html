@@ -80,14 +80,13 @@
       box-shadow: none;
       border-top: none;
     }
-    /* fixedRows 滚动区域：启用触摸滚动 */
+    /* fixedRows 滚动区域：JS 手动控制滚动（touch-action:none 避免与 variant 上划冲突） */
     .MLK__rows.MLK__scrollable-rows,
     .MLK__rows.MLK__scrollable-rows .MLK__row,
     .MLK__rows.MLK__scrollable-rows .MLK__row > div {
-      touch-action: pan-y;
+      touch-action: none;
     }
     .MLK__rows.MLK__scrollable-rows {
-      -webkit-overflow-scrolling: touch;
       overscroll-behavior: contain;
     }
     .ML__menu,
@@ -330,7 +329,9 @@
                   { class: 'separator', width: 0.5 },
                   { label: '[shift]', width: 1 },
                   { label: '[backspace]', width: 1 },
-                  '[left]', '[right]',{label: '[return]', width: 1}
+                  { label: '[left]', width: 1 },
+                  { label: '[right]', width: 1 },
+                  { label: '[return]', width: 1 }
                 ]
               ]
             }
@@ -375,60 +376,80 @@
   }
 
   /*
-   * 修复 fixedRows 滚动区域内的触摸滚动冲突。
+   * 修复 fixedRows 滚动区域内的触摸滚动与 variant 面板冲突。
    *
-   * 问题：MathLive 的 Gg(pointerdown) 和 .MLK__layer 的 pointerdown 处理器
-   *   都调用 e.preventDefault()，阻止浏览器启动滚动手势。
-   *   导致手指滑动时无法滚动，反而触发按键。
+   * 核心矛盾：
+   *   - 滚动键盘需要手指上下滑动
+   *   - variant 面板选择也需要手指上划
+   *   - touch-action:pan-y 让浏览器在 compositor 层处理滚动，
+   *     会“抢走” variant 的上划手势
    *
-   * 方案：在 capture 阶段拦截 pointerdown，将 e.preventDefault 替换为空操作，
-   *   让浏览器可以启动滚动。同时跟踪手指移动距离，超过阈值时派发 pointercancel
-   *   取消按键按压状态，避免滑动结束误触发按键命令。
+   * 方案：touch-action:none 禁用浏览器原生滚动，完全由 JS 手动控制：
+   *   1. pointerdown 记录起始位置和 scrollTop
+   *   2. pointermove 超过阈值 → 判定为滚动 → 手动修改 scrollTop + 取消按键
+   *   3. variant 面板打开时 → 不手动滚动，让 MathLive 正常处理上划选择
+   *   4. 未超过阈值 → 不干预，让 MathLive 正常处理点击/长按
    */
   function mlMixedFixScrollTouch() {
     var scrollable = document.querySelector('.MLK__scrollable-rows');
     if (!scrollable || scrollable.dataset.mlMixedScrollFix === '1') return;
     scrollable.dataset.mlMixedScrollFix = '1';
 
-    var startX = 0, startY = 0, activeId = -1;
+    var startX = 0, startY = 0, startScrollTop = 0;
+    var activePtr = -1;
+    var isScrolling = false;
     var THRESHOLD = 10;
 
     scrollable.addEventListener('pointerdown', function (e) {
       startX = e.clientX;
       startY = e.clientY;
-      activeId = e.pointerId;
-      // 将 preventDefault 替换为空操作，使浏览器可以启动滚动手势
-      try { e.preventDefault = function () {}; } catch (_) {}
+      startScrollTop = scrollable.scrollTop;
+      activePtr = e.pointerId;
+      isScrolling = false;
     }, { capture: true });
 
     scrollable.addEventListener('pointermove', function (e) {
-      if (e.pointerId !== activeId) return;
-      var dx = Math.abs(e.clientX - startX);
-      var dy = Math.abs(e.clientY - startY);
-      if (dx < THRESHOLD && dy < THRESHOLD) return;
-      activeId = -1;
-      // 手指移动超过阈值，判定为滚动，取消按键按压
-      var pressed = scrollable.querySelector('.is-pressed');
-      if (pressed) {
-        pressed.classList.remove('is-pressed');
-        try {
-          pressed.dispatchEvent(new PointerEvent('pointercancel', {
-            bubbles: true,
-            cancelable: false,
-            pointerId: e.pointerId,
-            pointerType: e.pointerType
-          }));
-        } catch (_) {}
+      if (e.pointerId !== activePtr) return;
+
+      /* variant 面板打开时，完全不干预，让 MathLive 处理上划选择 */
+      if (document.querySelector('.MLK__variant-panel.is-visible')) return;
+
+      var dy = e.clientY - startY;
+
+      if (!isScrolling) {
+        var dx = Math.abs(e.clientX - startX);
+        if (Math.abs(dy) < THRESHOLD && dx < THRESHOLD) return;
+
+        /* 超过阈值 → 判定为滚动 */
+        isScrolling = true;
+
+        /* 取消按键按压状态，防止滑动结束误触发按键 */
+        var pressed = scrollable.querySelector('.is-pressed');
+        if (pressed) {
+          pressed.classList.remove('is-pressed');
+          try {
+            pressed.dispatchEvent(new PointerEvent('pointercancel', {
+              bubbles: true,
+              cancelable: false,
+              pointerId: e.pointerId,
+              pointerType: e.pointerType
+            }));
+          } catch (_) {}
+        }
       }
+
+      /* 手动滚动 */
+      scrollable.scrollTop = startScrollTop - dy;
     }, { capture: true });
 
-    scrollable.addEventListener('pointerup', function (e) {
-      if (e.pointerId === activeId) activeId = -1;
-    }, { capture: true });
-
-    scrollable.addEventListener('pointercancel', function (e) {
-      if (e.pointerId === activeId) activeId = -1;
-    }, { capture: true });
+    function endPtr(e) {
+      if (e.pointerId === activePtr) {
+        activePtr = -1;
+        isScrolling = false;
+      }
+    }
+    scrollable.addEventListener('pointerup', endPtr, { capture: true });
+    scrollable.addEventListener('pointercancel', endPtr, { capture: true });
   }
 
   function mlMixedEnsureScrollFix() {
