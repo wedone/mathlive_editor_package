@@ -33,10 +33,13 @@
       display: flex;
       flex-direction: column;
     }
+    /* ───── 编辑器元素样式（非 DOM Hook，是 HTML 模板自带的 <math-field> 样式） ───── */
+    /* 隐藏 MathLive <math-field> 自带的菜单按钮和键盘切换按钮（我们用自己的 UI 控制） */
     math-field::part(menu-toggle),
     math-field::part(virtual-keyboard-toggle) {
       display: none !important;
     }
+    /* 编辑器输入区域样式 */
     math-field {
       width: 100%;
       min-height: 30px;
@@ -53,11 +56,13 @@
       /* 公式内容水平居中 */
       justify-content: center;
     }
-    /* MathLive 内容区域居中（shadow DOM 内部） */
+    /* MathLive shadow DOM 内部内容区域居中 */
     math-field::part(content) {
       justify-content: center;
     }
     math-field:focus { outline: none; }
+
+    /* ───── 暗色主题样式（非 DOM Hook，通过 JS mlMixedSetTheme() 切换 .theme-dark 类） ───── */
     .mathlive-mixed-root.theme-dark { background: #141922; }
     body.theme-dark { background: #141922; }
     .mathlive-mixed-root.theme-dark math-field,
@@ -65,6 +70,13 @@
       background: #1e2532;
       color: #e2e8f0;
     }
+
+    /* ───── [DOM Hook 修改点 #8] 触屏设备按键尺寸适配 ───── */
+    /* 目标：通过 MathLive CSS 变量覆盖按键尺寸
+     * 作用：在触屏设备上使用更小的按键高度，为 fixedRows 滚动留出更多空间
+     * 原理：MathLive 内部使用 var(--keycap-height) 控制按键高度，
+     *   覆盖这些变量即可全局调整按键尺寸
+     * 触发条件：@media (pointer: coarse) 匹配触摸屏设备 */
     @media (pointer: coarse) {
       body {
         --keycap-height: 42px;
@@ -74,7 +86,6 @@
         --keyboard-toolbar-font-size: 15px;
         --keycap-gap: 4px;
       }
-      /* math-field { font-size: 24px; min-height: 60px; } */
     }
     /* ───── [DOM Hook 修改点 #1] 虚拟键盘外观 ───── */
     /* 目标类：.ML__keyboard / .MLK__backdrop（MathLive 动态创建，位于 <body> 直接子级）
@@ -107,6 +118,13 @@
     .MLK__rows.MLK__scrollable-rows {
       overscroll-behavior: contain;
     }
+
+    /* ───── [DOM Hook 修改点 #6] 右键菜单容器尺寸适配 ───── */
+    /* 目标类：.ML__menu / .ui-menu-container / [role="menu"]（MathLive 动态创建的弹出菜单）
+     * 作用：限制菜单最大宽高，使其在窄屏 WebView 中不溢出
+     * 原因：WebView 宽度通常等于手机屏幕宽度（约 360-400px），
+     *   MathLive 默认菜单宽度可能超出此范围，导致菜单被截断或触发横向滚动
+     * 使用 !important：需要覆盖 MathLive 内联样式 */
     .ML__menu,
     .ui-menu-container,
     ui-menu-container,
@@ -117,6 +135,12 @@
       overflow: auto !important;
       box-sizing: border-box !important;
     }
+
+    /* ───── [DOM Hook 修改点 #7] 菜单项文本换行 ───── */
+    /* 目标类：[role="menuitem"]（菜单内的单个选项元素）
+     * 作用：允许菜单项文本自动换行，防止长文本（如中文标注）被截断
+     * 原因：MathLive 默认 white-space: nowrap，中文文本会溢出
+     * 关联类：.ui-menu-container / ui-menu-container 是不同版本菜单的容器类名 */
     .ML__menu [role="menuitem"],
     .ui-menu-container [role="menuitem"],
     ui-menu-container [role="menuitem"],

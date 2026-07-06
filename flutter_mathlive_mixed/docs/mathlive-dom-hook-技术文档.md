@@ -158,6 +158,54 @@ mathVirtualKeyboard.addEventListener('geometrychange', function() {
 - **作用**：MathLive 重建键盘 DOM 后重新绑定事件监听器
 - **原因**：`rebuild()` 会移除旧 DOM，之前绑定的事件监听器随之销毁
 
+### 修改点 #6：右键菜单容器尺寸适配（CSS 覆盖）
+
+```css
+.ML__menu,
+.ui-menu-container,
+[role="menu"] {
+  max-width: calc(100vw - 16px) !important;
+  max-height: calc(100vh - 16px) !important;
+  overflow: auto !important;
+  box-sizing: border-box !important;
+}
+```
+
+- **目标类**：`.ML__menu` / `.ui-menu-container` / `[role="menu"]`
+- **作用**：限制菜单最大宽高，使其在窄屏 WebView 中不溢出
+- **使用 `!important`**：需要覆盖 MathLive 内联样式
+
+### 修改点 #7：菜单项文本换行（CSS 覆盖）
+
+```css
+.ML__menu [role="menuitem"],
+[role="menu"] [role="menuitem"] {
+  white-space: normal !important;
+  word-break: break-word !important;
+}
+```
+
+- **目标类**：`[role="menuitem"]`
+- **作用**：允许菜单项文本自动换行，防止长文本（如中文标注）被截断
+- **原因**：MathLive 默认 `white-space: nowrap`，中文文本会溢出
+
+### 修改点 #8：触屏设备按键尺寸适配（CSS 变量覆盖）
+
+```css
+@media (pointer: coarse) {
+  body {
+    --keycap-height: 42px;
+    --keycap-font-size: 17px;
+    --keycap-gap: 4px;
+    /* ... */
+  }
+}
+```
+
+- **目标**：通过 MathLive CSS 变量覆盖按键尺寸
+- **作用**：在触屏设备上使用更小的按键高度，为 fixedRows 滚动留出更多空间
+- **原理**：MathLive 内部使用 `var(--keycap-height)` 控制按键高度，覆盖这些变量即可全局调整
+
 ---
 
 ## 四、DOM Hook 的三种技术手段
