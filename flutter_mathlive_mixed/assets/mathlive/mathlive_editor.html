@@ -416,16 +416,16 @@
                 // { class: 'action', label: '[backspace]', "command": 'backspace', variants: '[deleteAll]', width: 1 },
                 { label: '[left]', width: 1 },
                 { label: '[right]', width: 1 },
-                // ★ [插入]按键：替换原 [return]，默认行内，Shift 行间
+                // ★ [插入]按键：替换原 [return]，默认行内（$...$），Shift 行间（$$...$$）
                 {
                   label: '[return]',
                   class: 'action',
                   width: 1,
-                  command: 'performWithFeedback(commit)',
+                  command: 'insertInline',
                   shift: {
                     label: '↩️',
                     class: 'action',
-                    command: 'performWithFeedback(commit)',
+                    command: 'insertBlock',
                   },
                 }],
             ],
@@ -458,6 +458,7 @@
      * with position:fixed; bottom:0.
      */
     mlMixedSetupKeyboardLayouts();
+    mlMixedSetupCustomCommands();
     try {
       mathVirtualKeyboard.show();
     } catch (eShow) {}
@@ -578,6 +579,68 @@
     setTimeout(mlMixedFixScrollTouch, 500);
   }
 
+  /* ───── 自定义 command：行内/行间插入公式 ─────
+   *
+   * 按键 command 分发链路（MathLive 0.101.2 源码追踪）：
+   *   1. 用户按下 [return] 按键 → handleVirtualKeyboardEvent() (pointerup)
+   *   2. executeKeycapCommand(keycap) → 取 keycap.command
+   *   3. VirtualKeyboard.singleton.executeCommand(command)  ← 即 mathVirtualKeyboard.executeCommand
+   *   4. getCommandTarget(command) 查 COMMANDS 注册表 → 未注册返回 undefined
+   *   5. sendMessage('execute-command', {command}) → mathfield.perform() → 抛 "Unknown command"
+   *
+   * 关键：必须覆写 mathVirtualKeyboard.executeCommand（步骤 3），而非 mf.executeCommand（步骤 5 之后）。
+   * 因为 mf.executeCommand 是 MathfieldElement 的公开方法，键盘不经过它；
+   * 键盘直接调用 mathVirtualKeyboard.executeCommand，该方法内部通过 sendMessage
+   * 发消息给私有 mathfield，私有 mathfield 再调 perform() 抛错。
+   *
+   * command 命名：
+   *   'insertInline' → 行内公式，Flutter 侧以 $...$ 包裹
+   *   'insertBlock'  → 行间公式，Flutter 侧以 $$...$$ 包裹
+   */
+  function mlMixedHandleInsertCommand(cmdName) {
+    try {
+      var mf = document.getElementById('mf');
+      if (!mf) return;
+      var latex = (typeof mf.getValue === 'function') ? String(mf.getValue('latex') || '') : '';
+      if (latex.trim() === '') return;
+
+      /* 将命令名转换为 mode 值：insertInline → 'inline'，insertBlock → 'block' */
+      var mode = cmdName === 'insertBlock' ? 'block' : 'inline';
+
+      /* 发送插入请求到 Flutter */
+      var payload = JSON.stringify({ mode: mode, latex: latex });
+      try {
+        if (typeof FlutterLatexInsert !== 'undefined' && FlutterLatexInsert.postMessage) {
+          FlutterLatexInsert.postMessage(payload);
+        }
+      } catch (eInsert) {}
+
+      /* 清空 math-field，准备输入下一个公式 */
+      try {
+        mf.setValue('', { format: 'latex' });
+      } catch (eClear) {}
+    } catch (e) {}
+  }
+
+  function mlMixedSetupCustomCommands() {
+    if (typeof mathVirtualKeyboard === 'undefined') return;
+    if (mathVirtualKeyboard._mlMixedCustomCmd === '1') return;
+    mathVirtualKeyboard._mlMixedCustomCmd = '1';
+
+    /* 保存原始 executeCommand 引用（VirtualKeyboard 实例方法） */
+    var originalVkExecute = mathVirtualKeyboard.executeCommand.bind(mathVirtualKeyboard);
+
+    /* 覆写 mathVirtualKeyboard.executeCommand，在 sendMessage 之前拦截自定义命令 */
+    mathVirtualKeyboard.executeCommand = function (command) {
+      var cmd = (Array.isArray(command) && command.length > 0) ? command[0] : command;
+      if (cmd === 'insertInline' || cmd === 'insertBlock') {
+        mlMixedHandleInsertCommand(cmd);
+        return true;
+      }
+      return originalVkExecute.apply(this, arguments);
+    };
+  }
+
   function mlMixedEnsureMathModeSpace() {
     var mf = document.getElementById('mf');
     if (!mf) return;
@@ -688,6 +751,7 @@
     mlMixedEnsureMathModeSpace();
     mlMixedAttachVirtualKeyboard();
     mlMixedFixKeys();
+    mlMixedSetupCustomCommands();
     setTimeout(mlMixedNotifyHostChromeHeight, 0);
     setTimeout(mlMixedNotifyHostChromeHeight, 200);
 
@@ -698,6 +762,7 @@
         mlMixedAttachVirtualKeyboard();
         mlMixedEnsureScrollFix();
         mlMixedFixKeys();
+        mlMixedSetupCustomCommands();
       }).catch(function () {});
     }
 
@@ -705,6 +770,8 @@
     setTimeout(mlMixedAttachVirtualKeyboard, 50);
     setTimeout(mlMixedAttachVirtualKeyboard, 300);
     setTimeout(mlMixedFixKeys, 50);
+    setTimeout(mlMixedSetupCustomCommands, 50);
+    setTimeout(mlMixedSetupCustomCommands, 300);
   })();
 </script>
 </body>

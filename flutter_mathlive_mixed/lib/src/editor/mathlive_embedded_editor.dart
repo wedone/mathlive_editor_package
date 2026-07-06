@@ -22,6 +22,7 @@ class MathLiveEmbeddedEditor extends StatefulWidget {
     required this.isDark,
     this.initialLatex,
     required this.onLatexChanged,
+    this.onInsertFormula,
     this.height = 320,
     this.latexSnapshot,
     this.theme = MathLiveMixedTheme.defaults,
@@ -31,6 +32,12 @@ class MathLiveEmbeddedEditor extends StatefulWidget {
   final bool isDark;
   final String? initialLatex;
   final ValueChanged<String> onLatexChanged;
+
+  /// 当用户通过自定义 command（insertInline/insertBlock）请求插入公式时回调。
+  ///
+  /// [latex] 为 MathLive 编辑器中的 LaTeX 内容，
+  /// [mode] 为 'inline'（行内，$...$）或 'block'（行间，$$...$$）。
+  final void Function(String latex, String mode)? onInsertFormula;
   final double height;
   final ValueNotifier<String>? latexSnapshot;
   final MathLiveMixedTheme theme;
@@ -100,6 +107,20 @@ class _MathLiveEmbeddedEditorState extends State<MathLiveEmbeddedEditor> {
           if (h != null && h.isFinite && h > 0 && h != _reportedHeight) {
             setState(() => _reportedHeight = h);
           }
+        },
+      )
+      ..addJavaScriptChannel(
+        MathLiveMixedChannels.latexInsertJsChannel,
+        onMessageReceived: (JavaScriptMessage message) {
+          if (!mounted) return;
+          try {
+            final data = jsonDecode(message.message) as Map<String, dynamic>;
+            final mode = data['mode'] as String? ?? 'inline';
+            final latex = data['latex'] as String? ?? '';
+            if (latex.trim().isNotEmpty) {
+              widget.onInsertFormula?.call(latex, mode);
+            }
+          } catch (_) {}
         },
       )
       ..setNavigationDelegate(
