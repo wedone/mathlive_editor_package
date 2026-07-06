@@ -148,8 +148,11 @@ class _MathLiveEditorPageState extends State<MathLiveEditorPage> {
       final String html = patchMathLiveEditorHtml(
         await rootBundle.loadString(kMathLiveEditorHtmlAsset),
       );
+      // 内联本地构建的 JS（含 fixedRows），CSS 仍从 CDN 加载（字体路径正常）
+      final String js = await rootBundle.loadString(kMathLiveJsAsset);
+      final String htmlWithLocalJs = inlineLocalMathLiveJs(html, js);
       await c.loadHtmlString(
-        html,
+        htmlWithLocalJs,
         baseUrl: 'https://cdn.jsdelivr.net/npm/mathlive@0.101.2/dist/',
       );
     } catch (_) {

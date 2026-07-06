@@ -223,6 +223,117 @@
     } catch (e2) {}
   }
 
+  /*
+   * 自定义虚拟键盘布局：rows 可滚动，fixedRows 固定在底部。
+   * 需要本地构建的 MathLive JS（含 fixedRows 源码级支持）。
+   */
+  function mlMixedSetupKeyboardLayouts() {
+    if (typeof mathVirtualKeyboard === 'undefined') return;
+    try {
+      mathVirtualKeyboard.layouts = [
+        {
+          label: '常用',
+          layers: [
+            {
+              rows: [
+                // 第1行：数字 + 字母
+                [
+                  { label: '[1]', variants: ['\\frac{1}{#@}', '{#@}^{-1}'] },
+                  '[2]', '[3]', '[4]', '[5]',
+                  { class: 'separator', width: 0.5 },
+                  { label: 'A', variants: ['a', 'α'], shift: 'α' },
+                  { label: 'B', variants: ['b', 'β'], shift: 'β' },
+                  { label: 'C', variants: ['c', 'θ'], shift: 'θ' },
+                  { label: 'D', variants: ['d', 'λ'], shift: 'λ' },
+                  { label: 'E', variants: ['e', 'μ'], shift: 'μ' }
+                ],
+                // 第2行
+                [
+                  '[6]', '[7]', '[8]', '[9]', '[0]',
+                  { class: 'separator', width: 0.5 },
+                  { label: 'F', variants: ['f', 'σ'], shift: 'σ' },
+                  { label: 'G', variants: ['g', 'π'], shift: 'π' },
+                  { label: 'H', variants: ['h', 'ω'], shift: 'ω' },
+                  { label: 'I', variants: ['i', 'γ'], shift: 'γ' },
+                  { label: 'J', variants: ['j', 'δ'], shift: 'δ' }
+                ],
+                // 第3行
+                [
+                  '[.]', '[(]', '[)]',
+                  { label: '<', variants: ['\\le', '≪'] },
+                  { label: '>', variants: ['\\ge', '≫'] },
+                  { class: 'separator', width: 0.5 },
+                  { label: 'K', variants: ['k', 'Δ', '\\nabla'], shift: 'Δ' },
+                  { label: 'L', variants: ['l', 'ρ'], shift: 'ρ' },
+                  { label: 'M', variants: ['m', 'ϕ'], shift: 'ϕ' },
+                  { label: 'N', variants: ['n', 'Σ'], shift: 'Σ' },
+                  { label: 'O', variants: ['o', 'ε'], shift: 'ε' }
+                ],
+                // 第4行：运算符
+                [
+                  { latex: '{#@}^{\\prime}', variants: ['{#@}^{\\doubleprime}'] },
+                  { class: 'small', latex: '\\frac{#@}{#?}' },
+                  { latex: '{#@}^{\\placeholder{@0}}' },
+                  { latex: '\\sqrt{#0}' },
+                  { latex: '\\overrightarrow{#0}' },
+                  { class: 'separator', width: 0.5 },
+                  { label: 'P', variants: ['p', 'η'], shift: 'η' },
+                  { label: 'Q', variants: ['q', 'ξ'], shift: 'ξ' },
+                  { label: 'R', variants: ['r', 'τ', '\\mathbb{R}'], shift: 'τ' },
+                  { latex: 'S', variants: ['s', 'Ω'], shift: 'Ω' },
+                  { label: 'T', variants: ['t'] }
+                ],
+                // 第5行：几何 + 集合
+                [
+                  { latex: '|{#0}|', variants: ['||{#0}||'] },
+                  { latex: '\\perp', variants: ['∥'] },
+                  { label: '∠', variants: ['∡'] },
+                  { latex: '\\triangle' },
+                  { latex: '\\because', variants: ['\\therefore'] },
+                  { class: 'separator', width: 0.5 },
+                  { label: 'U', variants: ['u'] },
+                  { label: 'V', variants: ['v'] },
+                  { latex: 'x', variants: ['X'] },
+                  { latex: 'y', variants: ['Y'] },
+                  { latex: 'z', variants: ['Z'] }
+                ],
+                // 第6行：函数
+                [
+                  { latex: '\\sin', variants: ['\\arcsin'], shift: '\\sin^{-1}' },
+                  { latex: '\\cos', variants: ['\\arccos'], shift: '\\cos^{-1}' },
+                  { latex: '\\tan', variants: ['\\arctan'], shift: '\\tan^{-1}' },
+                  { latex: '\\log', variants: ['\\ln', '\\lg'], shift: '\\ln' },
+                  { latex: '\\max', variants: ['\\min', '\\lim'], shift: '\\min' },
+                  { class: 'separator', width: 0.5 },
+                  { latex: '∈', variants: ['⊆', '⊂', '\\notin'], shift: '⊆' },
+                  { latex: '∪', variants: ['∩', '∅'], shift: '∩' },
+                  { latex: '⇒', variants: ['→', '⟺'], shift: '→' },
+                  { latex: '⇐', variants: ['←', '⇔'], shift: '←' },
+                  { latex: '∋', variants: ['⊇', '⊃'], shift: '⊇' }
+                ]
+              ],
+              fixedRows: [
+                // 固定行：运算符 + 导航
+                [
+                  '[+]', '[-]', '[*]', '[/]',
+                  { label: '=', variants: ['≠', '∼', '≈', '≅', '≡'], shift: '≈' },
+                  { class: 'separator', width: 0.5 },
+                  { label: '[shift]', width: 1 },
+                  { label: '[backspace]', width: 1 },
+                  '[left]', '[right]'
+                ]
+              ]
+            }
+          ]
+        },
+        'numeric',
+        'symbols',
+        'alphabetic',
+        'greek'
+      ];
+    } catch (e) {}
+  }
+
   function mlMixedAttachVirtualKeyboard() {
     if (typeof mathVirtualKeyboard === 'undefined') return;
     /*
@@ -230,6 +341,7 @@
      * MathLive creates <div class="ML__keyboard"> as a direct child of <body>
      * with position:fixed; bottom:0.
      */
+    mlMixedSetupKeyboardLayouts();
     try {
       mathVirtualKeyboard.show();
     } catch (eShow) {}
@@ -366,6 +478,7 @@
     if (typeof customElements !== 'undefined' && customElements.whenDefined) {
       customElements.whenDefined('math-field').then(function () {
         mlMixedEnsureMathModeSpace();
+        mlMixedSetupKeyboardLayouts();
         mlMixedAttachVirtualKeyboard();
         mlMixedFixKeys();
       }).catch(function () {});

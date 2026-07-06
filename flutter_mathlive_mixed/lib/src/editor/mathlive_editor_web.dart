@@ -91,6 +91,7 @@ class _MathLiveMixedWebHostState extends State<_MathLiveMixedWebHost> {
     }
     _mathLiveCdnCompleter = Completer<void>();
     try {
+      // CSS 仍从 CDN 加载（字体路径正常）
       if (html.document.querySelector('link[data-mathlive-mixed-cdn-css]') ==
           null) {
         final html.LinkElement link = html.LinkElement()
@@ -100,28 +101,23 @@ class _MathLiveMixedWebHostState extends State<_MathLiveMixedWebHost> {
           ..setAttribute('data-mathlive-mixed-cdn-css', '1');
         html.document.head!.append(link);
       }
-      if (html.document.querySelector('script[data-mathlive-mixed-cdn-js]') !=
+      if (html.document.querySelector('script[data-mathlive-mixed-local-js]') !=
           null) {
         if (!_mathLiveCdnCompleter!.isCompleted) {
           _mathLiveCdnCompleter!.complete();
         }
         return _mathLiveCdnCompleter!.future;
       }
+      // JS 从本地 assets 加载（含 fixedRows 等源码级改动，内联执行）
+      final String jsCode = await rootBundle.loadString(kMathLiveJsAsset);
       final html.ScriptElement script = html.ScriptElement()
-        ..src = 'https://cdn.jsdelivr.net/npm/mathlive@0.101.2/dist/mathlive.min.js'
-        ..setAttribute('data-mathlive-mixed-cdn-js', '1')
-        ..async = true;
-      script.onLoad.listen((_) {
-        if (!_mathLiveCdnCompleter!.isCompleted) {
-          _mathLiveCdnCompleter!.complete();
-        }
-      });
-      script.onError.listen((_) {
-        if (!_mathLiveCdnCompleter!.isCompleted) {
-          _mathLiveCdnCompleter!.completeError(StateError('MathLive script failed'));
-        }
-      });
+        ..text = jsCode
+        ..setAttribute('data-mathlive-mixed-local-js', '1');
       html.document.head!.append(script);
+      // 内联脚本同步执行，添加到 DOM 后即可用
+      if (!_mathLiveCdnCompleter!.isCompleted) {
+        _mathLiveCdnCompleter!.complete();
+      }
     } catch (e, st) {
       if (_mathLiveCdnCompleter != null &&
           !_mathLiveCdnCompleter!.isCompleted) {
